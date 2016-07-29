@@ -2,31 +2,18 @@
 
 #include "libavformat/avformat.h"
 
-int main(int argc, char *argv[])
+void test_read_frame()
 {
-	AVFormatContext *c;
-	AVPacket pkt1,*pkt = &pkt1;
 	const char* url1 = "rtmp://localhost:1935/live/test";
 	const char* url2 = "https://devimages.apple.com.edgekey.net/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8";
 	const char* url4 = "https://devimages.apple.com.edgekey.net/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8";
 	const char* url3 = "rtmp://localhost:1935/vod/test-1467270658.flv";
 	const char* url5 = "file://home/wq1950/Videos/test.flv";
 	char* urls[] = {url1, url2, url3, url4, url5};
-	int target = 4;
-	printf("%d %s %s\n",argc,argv[0],argv[1]);
-	if (argc == 2) {
-		char t = argv[1][0];
-		printf("%c\n",t);
-		int index = t -'0';
-		if (index >=1 && index <= sizeof(urls))
-			target = index;
-	}
 
-	avformat_network_init();
-#if 0
 	printf("%s\n",avformat_configuration());
 
-
+	avformat_network_init();
 
 //	AVInputFormat* iformat = av_find_input_format(url3);
 //	if (iformat != NULL)
@@ -59,7 +46,29 @@ int main(int argc, char *argv[])
 		}
 	}
 
-#endif
+fail:
+	avformat_close_input(&c);
+
+	avformat_free_context(c);
+
+	avformat_network_deinit();
+}
+
+int main(int argc, char *argv[])
+{
+	AVFormatContext *c;
+	AVPacket pkt1,*pkt = &pkt1;
+
+	int target = 4;
+	printf("%d %s %s\n",argc,argv[0],argv[1]);
+	if (argc == 2) {
+		char t = argv[1][0];
+		printf("%c\n",t);
+		int index = t -'0';
+		if (index >=1 && index <= sizeof(urls))
+			target = index;
+	}
+
 	AVIOContext *io;
 	const char* publish_url = "rtmp://localhost:1935/";
 	const char* protocol = avio_find_protocol_name(url3);
@@ -69,13 +78,6 @@ int main(int argc, char *argv[])
 	avio_write();
 
 	avio_close(&io);
-fail:
-#if 0
-	avformat_close_input(&c);
 
-	avformat_free_context(c);
-
-#endif
-	avformat_network_deinit();
 	return 0;
 }
