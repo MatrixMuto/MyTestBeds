@@ -17,6 +17,16 @@ void get_options(int argc, char* argv[])
 	}
 }
 
+void loader()
+{
+
+}
+
+int find_annexb(char* buf, int size)
+{
+
+}
+
 void analaze_h264()
 {
 	FILE *file;
@@ -30,11 +40,17 @@ void analaze_h264()
 	}
 
 	while ( (len = fread(buf,1,4096,file))>0) {
+		int state = -1;
 		printf("len=%d\n",len);
 		ptr = buf;
 		end = buf + len;
 
+
 		while (ptr < end) {
+			state = state << 8 | *ptr;
+			if (state == 0x0100)
+
+
 			ptr++;
 		}
 	}
