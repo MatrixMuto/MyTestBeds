@@ -89,7 +89,7 @@ void test_read_frame()
 {
 	AVFormatContext *ic;
 	AVPacket pkt1,*pkt = &pkt1;
-	int res, i, err;
+	int res, i, err, vi, ai;
 
 	printf("%s\n",avformat_configuration());
 
@@ -107,7 +107,7 @@ void test_read_frame()
 
 	av_register_all();
 
-	res = avformat_open_input(&ic, test_urls[2], NULL, NULL);
+	res = avformat_open_input(&ic, test_urls[5], NULL, NULL);
 	if (ic == NULL)
 	{
 		printf("failed open input, res %x\n",res);
@@ -122,7 +122,21 @@ void test_read_frame()
 
 	printf("programs %u, stream %u\n",ic->nb_programs,ic->nb_streams);
 
-	int flag = 0;
+	for (i=0; i < ic->nb_streams; ++i) {
+		AVStream* st = ic->streams[i];
+		if (st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+			vi = st->index;
+		}
+		else if (st->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
+			ai = st->index;
+		}
+	}
+
+    /* initialize packet, set data to NULL, let the demuxer fill it */
+    av_init_packet(pkt);
+    pkt->data = NULL;
+    pkt->size = 0;
+
 	for (i=0; i<100; )
 	{
 		err = av_read_frame(ic, pkt);
@@ -130,43 +144,17 @@ void test_read_frame()
 			printf("av_read_frame err:%x\n",err);
 			continue;
 		}
-
-		if (ic->nb_streams > 1 && !flag) {
-			printf("programs %u, stream %u\n",ic->nb_programs,ic->nb_streams);
-			unsigned char *dummy=NULL;
-			int dummy_len;
-			AVCodecContext *pCodecCtx = ic->streams[1]->codec;
-
-//			AVBitStreamFilterContext *bsfc = av_bitstream_filter_init("h264");
-//			printf("crash? %d\n",__LINE__);
-//			av_bitstream_filter_filter(bsfc, pCodecCtx, NULL, &dummy, &dummy_len, NULL, 0, 0);
-//			printf("crash? %d\n",__LINE__);
-		//	fwrite(pCodecCtx->extradata, pCodecCtx->extradata_size,1,fp);
-			if (ic->streams[1]->codec->extradata_size > 0) {
-				hexDump("extra", ic->streams[1]->codecpar->extradata, ic->streams[1]->codecpar->extradata_size);
-				printf("crash? %d\n",__LINE__);
-				char buf[4] = {0};
-				buf[3] =1;
-				dump("/tmp/arb.264",buf,4);
-				dump("/tmp/arb.264",
-				ic->streams[1]->codec->extradata+8,
-				ic->streams[1]->codec->extradata_size-8
-				);
-
-				//av_bitstream_filter_close(bsfc);
-				//free(dummy);
-				flag = 1;
+		if (pkt->stream_index == vi) {
+			dump_avpacket(i, pkt);
+			if (i==0) hexDump("pkt data",pkt->data,pkt->size);
+			for (uint8_t *p = pkt->data; p < pkt->data+pkt->size;) {
+				int len = (p[0]<<24)|(p[1]<<16)|(p[2]<<8)|p[3];
+				printf("len = %d\n",len);
+				p[0] = p[1] = p[2] = 0; p[3] = 1;
+				dump("/tmp/arb.264",p, len + 4);
+				p += len + 4;
 			}
-		}
-		if (flag) {
-			if (pkt->stream_index == 1) {
-				dump_avpacket(i, pkt);
-				uint8_t* p = pkt->data;
-				p[0] = 0; p[1] = 0; p[2] = 0;
-				p[3] = 1;
-				dump("/tmp/arb.264", pkt->data, pkt->size);
-				i++;
-			}
+			i++;
 		}
 	}
 
