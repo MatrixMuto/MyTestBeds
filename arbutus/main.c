@@ -91,8 +91,7 @@ void test_read_frame()
 	AVPacket pkt1,*pkt = &pkt1;
 	int res, i, err, vi, ai;
 
-	printf("%s\n",avformat_configuration());
-
+	//如果是网络协议,需要调用这个全局初始化函数.
 	avformat_network_init();
 
 //	AVInputFormat* iformat = av_find_input_format(url3);

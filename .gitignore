@@ -2,3 +2,6 @@
 *.iml
 .cproject
 .project
+objs
+.vscode
+

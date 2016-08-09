@@ -1,6 +1,5 @@
 [submodule "ffmpeg"]
-	path = ffmpeg
-	url = ./ffmpeg
+	url = https://git.ffmpeg.org/ffmpeg.git
 [submodule "x264"]
 	path = x264
 	url = http://git.videolan.org/git/x264.git
@@ -10,3 +9,4 @@
 [submodule "libevent"]
 	path = libevent
 	url = https://github.com/libevent/libevent.git
+
