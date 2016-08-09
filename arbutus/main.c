@@ -85,7 +85,12 @@ static inline void dump_avpacket(int i, AVPacket* pkt)
 				i, pkt->pts, pkt->dts, pkt->size, pkt->stream_index, pkt->flags);
 }
 
-void test_read_frame()
+void my_log_callback(void *ptr, int level, const char *fmt, va_list vargs)
+{
+    vprintf(fmt, vargs);
+}
+
+void test_read_frame(int offset)
 {
 	AVFormatContext *ic;
 	AVPacket pkt1,*pkt = &pkt1;
@@ -106,12 +111,16 @@ void test_read_frame()
 
 	av_register_all();
 
-	res = avformat_open_input(&ic, test_urls[5], NULL, NULL);
+	res = avformat_open_input(&ic, test_urls[offset], NULL, NULL);
 	if (ic == NULL)
 	{
 		printf("failed open input, res %x\n",res);
 		goto fail;
 	}
+
+	av_log_set_level(AV_LOG_DEBUG);
+	av_log_set_callback(my_log_callback);
+
 	printf("avformat_find_stream_info\n", err);
 
 	err = avformat_find_stream_info(ic, 0);
@@ -143,6 +152,7 @@ void test_read_frame()
 			printf("av_read_frame err:%x\n",err);
 			continue;
 		}
+
 		if (pkt->stream_index == vi) {
 			dump_avpacket(i, pkt);
 			if (i==0) hexDump("pkt data",pkt->data,pkt->size);
@@ -155,6 +165,7 @@ void test_read_frame()
 			}
 			i++;
 		}
+
 	}
 
 fail:
@@ -182,7 +193,12 @@ void test_rtmp_publish()
 
 int main(int argc, char *argv[])
 {
-	test_read_frame();
+	int offset = 2;
+	if (argc >=2 ) {
+		offset = atoi(argv[1]);
+	}
+
+	test_read_frame(offset);	
 //	int target = 4;
 //	printf("%d %s %s\n",argc,argv[0],argv[1]);
 //	if (argc == 2) {

@@ -1,6 +1,8 @@
 
 
 all:
-	cc lemon.c -o ../objs/lemon
-	cc server.c -o ../objs/lemon
+	cc -Wall lemon.c -o ../objs/lemon
+server:
+	cc server.c -o ../objs/server
+client:
 	cc client.c -o ../objs/client

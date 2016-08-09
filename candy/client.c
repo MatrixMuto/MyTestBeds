@@ -5,6 +5,19 @@
 #include <netinet/in.h>
 
 #include <arpa/inet.h>    //for inet_ntop
+void util_dump_addr(char *desc, struct sockaddr_in *addr)
+{
+	int af;
+	char buf[255];
+	const char *ip;
+	int port;
+	af = addr->sin_family;
+
+	ip = inet_ntop(af, &addr->sin_addr, buf, 255);
+	port = ntohs(addr->sin_port);
+	printf("%s: ip:%s port:%d\n",desc, ip, port);
+}
+
 int open_udp_socket(int port)
 {
 	int socket_fd, res;
@@ -29,34 +42,26 @@ int open_udp_socket(int port)
 	return socket_fd;
 }
 
-void util_dump_addr(char *desc, struct sockaddr_in *addr)
-{
-	int af;
-	char buf[255];
-	char *ip;
-	int port;
-	af = addr->sin_family;
-
-	ip = inet_ntop(af, &addr->sin_addr, buf, 255);
-	port = ntohs(addr->sin_port);
-	printf("%s: ip:%s port:%d\n",desc, ip, port);
-}
-
-void test_udp_client()
+void test_udp_client(char *ip,int port, char *cip, int port2)
 {
 	int sock,addr_from_len,len;
 	int err;
-	struct sockaddr_in addr,addr_from;
+	struct sockaddr_in addr,addr_from,b_addr;
 
 	addr_from_len = sizeof(addr_from);
 
-	sock = open_udp_socket(10000);
+	sock = open_udp_socket(port);
 
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(8890);
-	err = inet_pton(AF_INET, "104.194.67.119", &addr.sin_addr);
+	addr.sin_port = htons(10012);
+	err = inet_pton(AF_INET, ip, &addr.sin_addr);
+//	err = inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
+	memset(&b_addr, 0, sizeof(b_addr));
+	b_addr.sin_family = AF_INET;
+	b_addr.sin_port = htons(port2);
+	err = inet_pton(AF_INET, cip, &b_addr.sin_addr);
 //	err = inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
 
 	util_dump_addr("dst",&addr);
@@ -64,15 +69,28 @@ void test_udp_client()
 	char buf[255] = {0};
 	for(;;) {
 		buf[0] = getchar();
-		err = sendto(sock, buf, 1, 0, &addr, sizeof(addr));
-		len = recvfrom(sock,buf,255,0,&addr_from, &addr_from_len);
+		err = sendto(sock, buf, 1, 0, (const struct sockaddr *)&addr, sizeof(addr));
+		err = sendto(sock, buf, 1, 0, (const struct sockaddr *)&b_addr, sizeof(addr));
+		len = recvfrom(sock,buf,255,0, (struct sockaddr*)&addr_from, &addr_from_len);
 		printf("%s  <-----",buf);
 		util_dump_addr("from", &addr_from);
+	}
+}
 
+void util_dump_arg(int argc, char** argv)
+{
+	int i;
+	for (i = 0; i < argc; ++i) {
+		printf("[%d] [%s]\n", i, argv[i]);
 	}
 }
 int main(int argc, char* argv[])
 {
-	test_udp_client();
+	util_dump_arg(argc,argv);
+	if (argc < 4) {
+		printf("Invalid arg\n");
+		return 0;
+	}
+	test_udp_client(argv[1],atoi(argv[2]),argv[3],atoi(argv[4]));
 	return 0;
 }

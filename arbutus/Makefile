@@ -1,7 +1,7 @@
 FFMPEG_DIR = ../ffmpeg
 
 DEP  = -lavformat -lavcodec -lavfilter -lavdevice -lavutil
-DEP2 =  -lX11 -lva -lcrypto -lssl -lpthread -lm -lz -lbz2 
+DEP2 =  -lcrypto -lssl -lpthread -lm -lz
 DEP3 = -L$(FFMPEG_DIR)/libswresample -lswresample
 
 all: main.c
