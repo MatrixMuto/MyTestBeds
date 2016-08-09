@@ -88,7 +88,9 @@ int epoll_loop()
 		for (n = 0; n < nfds; ++n) {
 			if (events[n].data.fd == listen_sock) {
 				conn_sock = accept_connect(listen_sock);
-				setnonblocking(conn_sock);
+				if ( setnonblocking(conn_sock) < 0) {
+					perror("setnonblocking");
+				}
 				ev.events = EPOLLIN | EPOLLET;
 				ev.data.fd = conn_sock;
 				if (epoll_ctl(epollfd, EPOLL_CTL_ADD, conn_sock, &ev) == -1) {
