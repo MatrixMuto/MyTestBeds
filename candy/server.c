@@ -16,7 +16,6 @@ void util_dump_addr(char *desc, struct sockaddr_in *addr)
 	ip = inet_ntop(af, &addr->sin_addr, buf, 255);
 	port = ntohs(addr->sin_port);
 	printf("%s: ip:%s port:%d\n",desc, ip, port);
-
 }
 
 int open_udp_socket(int port)
@@ -57,7 +56,7 @@ void test_udp()
 	memset(&addr_to, 0, sizeof(addr_to));
 	addr_to.sin_family = AF_INET;
 	addr_to.sin_port = htons(10000);
-	 inet_pton(AF_INET, "115.195.176.249", &addr_to.sin_addr);
+	inet_pton(AF_INET, "115.195.176.249", &addr_to.sin_addr);
 
 	for(;;) {
 		buffer[0] = getchar();
