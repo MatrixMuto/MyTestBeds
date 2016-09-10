@@ -9,9 +9,17 @@
 
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
+
+static const char* dstIps[] = {
+    "218.204.223.237"
+};
+static const short ports[] = {
+    554
+};
+
 using boost::asio::ip::tcp;
 
-class MuRTSPClient
+class MuRTSssssClient
 {
 
 };
@@ -19,8 +27,8 @@ class MuRTSPClient
 void* rtsp_client(void* para)
 {
     boost::asio::io_service io_service;
-    tcp::socket s(io_service);
-    tcp::resolver resolver(io_service);
+    tcp::socket             s(io_service);
+    tcp::resolver           resolver(io_service);
     return NULL;
 }
 
@@ -31,8 +39,8 @@ void* rtsp_client_2(void* para)
     struct sockaddr_in serv_addr;
     memset(&serv_addr, 0, sizeof(serv_addr));
     serv_addr.sin_family      = AF_INET;
-    inet_pton(AF_INET, "218.204.223.237", &serv_addr.sin_addr);
-    serv_addr.sin_port        = htons(554);
+    inet_pton(AF_INET, dstIps[0], &serv_addr.sin_addr);
+    serv_addr.sin_port        = htons(ports[0]);
 
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     int err;
@@ -53,6 +61,7 @@ void* rtsp_client_2(void* para)
     shutdown(sockfd,SHUT_RDWR);
 
     std::cout << "thread out" << std::endl;
+    return NULL;
 }
 
 pthread_t thread;
