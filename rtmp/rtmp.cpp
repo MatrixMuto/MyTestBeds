@@ -76,7 +76,7 @@ void RRtmpCli::handshake()
     boost::system::error_code error;
     size_t len = socket_.read_some(boost::asio::buffer(buf),error);
         
-    /* send S2 */
+    /* send C2, C2 is S1*/
     socket_.send(boost::asio::buffer(&buf[1],1536));
 }
 
@@ -122,7 +122,7 @@ void Chunking::Send(tcp::socket& socket, Message& msg)
         0x0,0x0,0x10,0x0 };
     socket.send(boost::asio::buffer(set_chunk_size));
     /* basic header */
-    /* message header 0,1,2,3 */
+    /* message header, type is 0, 1, 2, or 3 */
     /* extended timestam */
     /* chunk data */
 

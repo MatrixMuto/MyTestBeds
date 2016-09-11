@@ -5,6 +5,9 @@
 using boost::asio::ip::tcp;
 class Message
 {
+private:
+	char header;
+	char body;
 };
 
 class Control : public Message
@@ -27,7 +30,7 @@ public:
     void Send(tcp::socket&, Message&);
 private:
     int chunk_size_;
-
+    char fmt[3];
 };
 
 class RRtmpCli
