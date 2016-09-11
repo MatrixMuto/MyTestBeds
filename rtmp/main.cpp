@@ -26,8 +26,8 @@ int main(int argc, char *argv[])
 {
     RRtmpCli* client = RRtmp::CreateCli();
     client->Connect();
+    loop();
     client->Disconnect();
     delete client;
-    loop();
     return 0;
 }
