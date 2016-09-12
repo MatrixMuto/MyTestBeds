@@ -3,9 +3,11 @@
 
 #include <boost/asio.hpp>
 
-#include "rtmp.hpp"
 #include <iostream>
 
+#include "amf0.h"
+
+#include "rtmp.hpp"
 using boost::asio::ip::tcp;
 
 RRtmp* RRtmp::Create()
@@ -19,7 +21,7 @@ RRtmpCli* RRtmp::CreateCli()
 }
 
 RRtmpCli::RRtmpCli()
-    : io_service_(),socket_(io_service_)
+    : io_service_(),socket_(io_service_),channel_(2)
 {
 }
 
@@ -48,7 +50,8 @@ void RRtmpCli::Disconnect()
 
 void RRtmpCli::Play()
 {
-
+    Message message = Message::Connect("live");
+    chunking_.Send(socket_, message);
 }
 
 void RRtmpCli::Publish()
@@ -78,22 +81,26 @@ void RRtmpCli::handshake()
     char s2[1536];
     boost::system::error_code error;
     size_t len = boost::asio::read(socket_, buffer(s0_s1), error);
+    len = boost::asio::read(socket_, buffer(s2), error);
 
     /* send C2, C2 must same with S1*/
     socket_.send(boost::asio::buffer(&s0_s1[1],1536));
 
-    len = boost::asio::read(socket_, buffer(s2), error);
 }
 
 void RRtmpCli::command_connect()
 {
+    using boost::asio::buffer;
     /* ------ command message (connect) ------> */
     
    // socket_.send();
     Message message = Control::SetChunkSize(4096);
     chunking_.Send(socket_, message);
-    //message = Command::Connect();
-    //chunking_.Send(socket_, message);
+    chunking_.chunk_size_ = 4096;
+    message = Command::Connect("live");
+    chunking_.Send(socket_, message);
+    uint8_t msg[1024]; 
+    boost::asio::read(socket_, buffer(msg));
 
 }
 
@@ -126,16 +133,57 @@ Message Message::SetChunkSize(int size)
     return msg;
 }
 
-Chunking::Chunking()
+/*static*/
+/*
+Message Message::Connect(std::string app)
+{
+    Message msg(4096);
+
+
+    return msg;
+}
+*/
+/*static*/
+Message Message::Connect(std::string app)
+{
+    Message msg(4096);
+    amf0_data *data;
+    data = amf0_data_new(AMF0_TYPE_STRING);
+    data = amf0_str("connect");
+    std::cout << amf0_string_get_size(data) << std::endl;  
+    
+    size_t len = amf0_data_buffer_write(data, msg.body_, 4096);
+    std::cout << len << std::endl;
+
+    data = amf0_number_new(1);
+    len = len + amf0_data_buffer_write(data, msg.body_+len, 4096);
+    std::cout << len << std::endl;
+
+    data = amf0_object_new();
+    amf0_object_add(data, "app", amf0_str("live"));
+    amf0_object_add(data, "type", amf0_str("nonprivate"));
+    amf0_object_add(data, "flashVer", amf0_str("FMLE/3.0 (compatible; obs-studio/0.14.2; FMSc/1.0)"));
+    amf0_object_add(data, "swfUrl", amf0_str("rtmp://172.17.196.3/live"));
+    amf0_object_add(data, "tcUrl", amf0_str("rtmp://172.17.196.3/live"));
+    len = len + amf0_data_buffer_write(data, msg.body_+len, 4096);
+    std::cout << len << std::endl;
+    msg.csid_ = 3;
+    msg.timestamp_ = 0;
+    msg.type_ = 20;  /* AMF 0 */
+    msg.stream_id_ = 0;
+    msg.length_ = len;
+    return msg;
+}
+Channel::Channel()
 {
     chunk_size_ = 128;
 }
 
-void Chunking::Send(tcp::socket& socket, const Message& msg)
+void Channel::Send(tcp::socket& socket, const Message& msg)
 {
     uint8_t buf[128];
     ByteStream bs(buf,128);
-    bs.put_byte(2);     /* basic header */
+    bs.put_byte(msg.csid_);     /* basic header */
     
     bs.put_be24(msg.timestamp_);
     bs.put_be24(msg.length_);

@@ -56,6 +56,7 @@ class Message
 {
 public:
     static Message SetChunkSize(int size);
+    static Message Connect(std::string);
     Message() =default;
     Message(uint32_t length)
        :length_(length) 
@@ -89,14 +90,21 @@ class Command : public Message
 {
 };
 
-class Chunking
+class Channel 
 {
 public:
-    Chunking();
+    Channel(int csid) :csid_(csid) {}
     void Send(tcp::socket&, const Message&);
-private:
+
+    void SetChunkSize(int size)
+    {
+        chunk_size_ = size;
+    }
+public:
+    int csid_;
     int chunk_size_;
-    char fmt[3];
+    uint8_t fmt;
+    uint32_t last_timestamp_;
 };
 
 class RRtmpCli
@@ -123,7 +131,7 @@ private:
 private:
     boost::asio::io_service io_service_;
     boost::asio::ip::tcp::socket socket_;
-    Chunking chunking_;
+    Channel channel_;
 };
 
 class RRtmp

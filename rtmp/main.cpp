@@ -2,6 +2,8 @@
 
 #include "rtmp.hpp"
 
+RRtmpCli* client;
+
 void loop()
 {
     char c;
@@ -14,6 +16,9 @@ void loop()
             break;
         case '\n':
             break;
+        case 'p':
+            client->Play();
+            break;
         case 'q':
             return;
         default:
@@ -24,7 +29,7 @@ void loop()
 
 int main(int argc, char *argv[])
 {
-    RRtmpCli* client = RRtmp::CreateCli();
+    client = RRtmp::CreateCli();
     client->Connect();
     loop();
     client->Disconnect();
