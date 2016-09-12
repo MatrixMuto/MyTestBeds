@@ -11,6 +11,16 @@ struct ByteStream
         cur   = begin;
     }
 
+    uint32_t get_be32() {
+		uint32_t val = *cur++ << 24 | *cur++ << 16 | *cur++ << 8 | *cur++;
+		return val;
+	}
+	uint32_t get_be24() {
+		return *cur++ << 16 | *cur++ << 8 | *cur++;
+	}
+	uint8_t get_byte() {
+		return *cur++;
+	}
     void put_be32(uint32_t val) {
        *cur++ = val >> 24;
        *cur++ = val >> 16;
@@ -93,7 +103,7 @@ class Command : public Message
 class Channel 
 {
 public:
-    Channel(int csid) :csid_(csid) {}
+    Channel(int csid) :csid_(csid),chunk_size_(128) {}
     void Send(tcp::socket&, const Message&);
 
     void SetChunkSize(int size)

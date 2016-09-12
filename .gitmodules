@@ -10,3 +10,6 @@
 	path = libevent
 	url = https://github.com/libevent/libevent.git
 
+[submodule "rtmp/libamf"]
+	path = rtmp/libamf
+	url = https://github.com/noirotm/libamf.git

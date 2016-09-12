@@ -50,8 +50,6 @@ void RRtmpCli::Disconnect()
 
 void RRtmpCli::Play()
 {
-    Message message = Message::Connect("live");
-    chunking_.Send(socket_, message);
 }
 
 void RRtmpCli::Publish()
@@ -95,13 +93,61 @@ void RRtmpCli::command_connect()
     
    // socket_.send();
     Message message = Control::SetChunkSize(4096);
-    chunking_.Send(socket_, message);
-    chunking_.chunk_size_ = 4096;
+    channel_.Send(socket_, message);
+    channel_.SetChunkSize(4096);
     message = Command::Connect("live");
-    chunking_.Send(socket_, message);
-    uint8_t msg[1024]; 
-    boost::asio::read(socket_, buffer(msg));
+    channel_.Send(socket_, message);
+	uint8_t test[3] = {0,0,6};
+	ByteStream bs(test,3);
+	std::cout << "test:" << bs.get_be24() << std::endl;
+    uint8_t msg[1024];
+	size_t len = socket_.read_some(buffer(msg,1024));
+	std::cout << "readed:" << len << std::endl;
+	uint8_t *p = msg, *end = msg + len;
+    for(;p < end;) {
+		int type;
+		int size;
+		int fmt = *p >> 6;
+		/* TODO: Complete Chunk Stream ID format */
+		int csid = *p & 0x3F;
+		std::cout << "fmt=" << fmt << ",csid:" << csid << std::endl;
+		p++;
+		if (fmt == 0) {
+			ByteStream bs(p,11);
+			bs.get_be24();
+			size = bs.get_be24();
+			type = bs.get_byte();
+			bs.get_be32();
+			p += 11;
+			p += size > 128 ? size+1 : size;
+		}
+		else if(fmt ==1) {
+			ByteStream bs(p,7);
+			bs.get_be24();
+			size = bs.get_be24();
+			type = bs.get_byte();
+			p += 7;	
+			p += size;
+		}
+		else if (fmt == 2) {
 
+		}
+		else if (fmt == 3) {
+		}
+		std::cout << "type:" << type << ",size:" << size << std::endl;
+		switch (type) {
+		case 0x04: /* User Control Message */
+			break;
+		case 0x05: /* Window Ack Size */
+			break;
+		case 0x06: /* Set Peer Bandwidth */
+			break;
+		case 0x14: /* AMF0 Message */
+			break;
+		default:
+			break;
+		}
+	} 
 }
 
 void RRtmpCli::create_stream()
@@ -173,10 +219,6 @@ Message Message::Connect(std::string app)
     msg.stream_id_ = 0;
     msg.length_ = len;
     return msg;
-}
-Channel::Channel()
-{
-    chunk_size_ = 128;
 }
 
 void Channel::Send(tcp::socket& socket, const Message& msg)
