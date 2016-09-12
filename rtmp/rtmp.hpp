@@ -3,11 +3,77 @@
 
 #include <boost/asio.hpp>
 using boost::asio::ip::tcp;
+struct ByteStream
+{
+    ByteStream(uint8_t* buf, size_t size) {
+        begin = buf;
+        end   = begin + size;
+        cur   = begin;
+    }
+
+    void put_be32(uint32_t val) {
+       *cur++ = val >> 24;
+       *cur++ = val >> 16;
+       *cur++ = val >> 8;
+       *cur++ = val;
+    }
+
+    void put_be24(uint32_t val) {
+        *cur++ = val >> 16;
+        *cur++ = val >> 8;
+        *cur++ = val;
+    }
+
+    void put_be16(uint16_t val) {
+        *cur++ = val >> 8;
+        *cur++ = val;
+    }
+
+    void put_byte(uint8_t val) {
+        *cur++ = val;
+    }
+    
+    void put_buffer(uint8_t* val, size_t size)
+    {
+        memcpy(cur, val, size);
+        cur += size;
+    }
+
+    inline size_t size() { 
+        return cur - begin;
+    };
+
+    inline uint8_t* buf() {
+        return begin;
+    }
+private:
+    uint8_t* begin;
+    uint8_t* end;
+    uint8_t* cur;
+};
+
 class Message
 {
-private:
-	char header;
-	char body;
+public:
+    static Message SetChunkSize(int size);
+    Message() =default;
+    Message(uint32_t length)
+       :length_(length) 
+    {
+        body_ = (uint8_t*) malloc(length_);
+    }
+    Message(uint16_t csid, uint32_t timestamp, uint32_t size)
+       :csid_(csid) 
+    {
+
+    }
+public:
+    uint16_t csid_;
+    uint32_t timestamp_;
+    uint32_t length_;
+    uint8_t  type_;
+    uint32_t stream_id_;
+    uint8_t* body_;
 };
 
 class Control : public Message
@@ -27,7 +93,7 @@ class Chunking
 {
 public:
     Chunking();
-    void Send(tcp::socket&, Message&);
+    void Send(tcp::socket&, const Message&);
 private:
     int chunk_size_;
     char fmt[3];
@@ -40,7 +106,7 @@ public:
     RRtmpCli& operator=(const RRtmpCli&) = delete;
     RRtmpCli();
     void Connect();
-    void Connect(char *ip);
+    void Connect(std::string ip);
     void Disconnect();
     
     void Play();
@@ -48,7 +114,7 @@ public:
     void Publish();
 
 private:
-    void tcp_connect(char* ip);
+    void tcp_connect(std::string);
     void handshake();
     void command_connect();
     void create_stream();
