@@ -3,70 +3,15 @@
 
 #include <boost/asio.hpp>
 using boost::asio::ip::tcp;
-struct ByteStream
-{
-    ByteStream(uint8_t* buf, size_t size) {
-        begin = buf;
-        end   = begin + size;
-        cur   = begin;
-    }
-
-    uint32_t get_be32() {
-		uint32_t val = *cur++ << 24 | *cur++ << 16 | *cur++ << 8 | *cur++;
-		return val;
-	}
-	uint32_t get_be24() {
-		return *cur++ << 16 | *cur++ << 8 | *cur++;
-	}
-	uint8_t get_byte() {
-		return *cur++;
-	}
-    void put_be32(uint32_t val) {
-       *cur++ = val >> 24;
-       *cur++ = val >> 16;
-       *cur++ = val >> 8;
-       *cur++ = val;
-    }
-
-    void put_be24(uint32_t val) {
-        *cur++ = val >> 16;
-        *cur++ = val >> 8;
-        *cur++ = val;
-    }
-
-    void put_be16(uint16_t val) {
-        *cur++ = val >> 8;
-        *cur++ = val;
-    }
-
-    void put_byte(uint8_t val) {
-        *cur++ = val;
-    }
-    
-    void put_buffer(uint8_t* val, size_t size)
-    {
-        memcpy(cur, val, size);
-        cur += size;
-    }
-
-    inline size_t size() { 
-        return cur - begin;
-    };
-
-    inline uint8_t* buf() {
-        return begin;
-    }
-private:
-    uint8_t* begin;
-    uint8_t* end;
-    uint8_t* cur;
-};
-
 class Message
 {
 public:
     static Message SetChunkSize(int size);
     static Message Connect(std::string);
+    static Message WindowAcknowledgementSize(uint32_t);
+    static Message CreateStream();
+    static Message Play();
+    static Message SetBufferLength();
     Message() =default;
     Message(uint32_t length)
        :length_(length) 
@@ -78,6 +23,9 @@ public:
     {
 
     }
+    bool completed(){
+        return body2_.size() == length_;
+    }
 public:
     uint16_t csid_;
     uint32_t timestamp_;
@@ -85,6 +33,7 @@ public:
     uint8_t  type_;
     uint32_t stream_id_;
     uint8_t* body_;
+    std::vector<uint8_t> body2_;
 };
 
 class Control : public Message
@@ -103,20 +52,34 @@ class Command : public Message
 class Channel 
 {
 public:
-    Channel(int csid) :csid_(csid),chunk_size_(128) {}
-    void Send(tcp::socket&, const Message&);
-
-    void SetChunkSize(int size)
-    {
-        chunk_size_ = size;
+    Channel(int csid)
+       : csid_(csid), chunk_size_(128)
+    {}
+    void Send(tcp::socket&, int, const Message&);
+    void ReadOneChunk(tcp::socket&);
+    /*
+    int GetTxMaxChunkSize() {
+        return tx_max_chunk_size_;
     }
-public:
+    void SetTxMaxChunkSize(int size) {
+       tx_max_chunk_size_ = size; 
+    }
+    int GetRxMaxChunkSize() {
+        return rx_max_chunk_size_;
+    }
+    void SetRxMaxChunkSize(int size) {
+       rx_max_chunk_size_ = size; 
+    }
+    */
+private:
     int csid_;
     int chunk_size_;
     uint8_t fmt;
     uint32_t last_timestamp_;
 };
-
+class Packet
+{
+};
 class RRtmpCli
 {
 public:
@@ -126,22 +89,39 @@ public:
     void Connect();
     void Connect(std::string ip);
     void Disconnect();
-    
     void Play();
-
     void Publish();
-
+    void Read();
 private:
     void tcp_connect(std::string);
     void handshake();
     void command_connect();
     void create_stream();
     void release_stream();
-
+    void play();
+    void read_one_chunk();
+    void deal_message();
+    /*
+    Channel get_peer_channel(int chunk_stream_id) {
+        for (auto channel : peer_channel_) {
+            if (channel.id() == chunk_stream_id)
+                return channel;
+        }
+        return 
+    }
+    */
 private:
     boost::asio::io_service io_service_;
     boost::asio::ip::tcp::socket socket_;
-    Channel channel_;
+    Channel cmd_channel_;
+    Message prev_message;
+    //Channel peer_channel_[10];
+    int recv_max_chunk_size = 128;
+    int tx_max_chunk_size_;
+    int rx_max_chunk_size_;
+    std::vector<Packet> packet_;
+    std::array<uint8_t,8192> data_;
+    bool wait_for_result_;
 };
 
 class RRtmp

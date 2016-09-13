@@ -6,7 +6,7 @@
 #include <iostream>
 
 #include "amf0.h"
-
+#include "bytestream.hpp"
 #include "rtmp.hpp"
 using boost::asio::ip::tcp;
 
@@ -21,7 +21,11 @@ RRtmpCli* RRtmp::CreateCli()
 }
 
 RRtmpCli::RRtmpCli()
-    : io_service_(),socket_(io_service_),channel_(2)
+    : io_service_(),
+      socket_(io_service_),
+      cmd_channel_(2),
+      tx_max_chunk_size_(128),
+      rx_max_chunk_size_(128)
 {
 }
 
@@ -33,6 +37,10 @@ void RRtmpCli::Connect(std::string ip)
         handshake();
        
         command_connect();
+
+        create_stream();
+
+        play();
     }
     catch (std::exception& e)
     {
@@ -43,6 +51,7 @@ void RRtmpCli::Connect(std::string ip)
 void RRtmpCli::Connect()
 {
     Connect("122.228.237.24");
+    //Connect("127.0.0.1");
 }
 void RRtmpCli::Disconnect()
 {
@@ -55,7 +64,10 @@ void RRtmpCli::Play()
 void RRtmpCli::Publish()
 {
 }
+void RRtmpCli::Read()
+{
 
+}
 void RRtmpCli::tcp_connect(std::string ip)
 {
     boost::asio::ip::address addr;
@@ -85,57 +97,82 @@ void RRtmpCli::handshake()
     socket_.send(boost::asio::buffer(&s0_s1[1],1536));
 
 }
-
-void RRtmpCli::command_connect()
+void RRtmpCli::read_one_chunk()
 {
     using boost::asio::buffer;
-    /* ------ command message (connect) ------> */
-    
-   // socket_.send();
-    Message message = Control::SetChunkSize(4096);
-    channel_.Send(socket_, message);
-    channel_.SetChunkSize(4096);
-    message = Command::Connect("live");
-    channel_.Send(socket_, message);
-	uint8_t test[3] = {0,0,6};
-	ByteStream bs(test,3);
-	std::cout << "test:" << bs.get_be24() << std::endl;
-    uint8_t msg[1024];
-	size_t len = socket_.read_some(buffer(msg,1024));
-	std::cout << "readed:" << len << std::endl;
-	uint8_t *p = msg, *end = msg + len;
-    for(;p < end;) {
-		int type;
-		int size;
-		int fmt = *p >> 6;
-		/* TODO: Complete Chunk Stream ID format */
-		int csid = *p & 0x3F;
-		std::cout << "fmt=" << fmt << ",csid:" << csid << std::endl;
-		p++;
-		if (fmt == 0) {
-			ByteStream bs(p,11);
-			bs.get_be24();
-			size = bs.get_be24();
-			type = bs.get_byte();
-			bs.get_be32();
-			p += 11;
-			p += size > 128 ? size+1 : size;
-		}
-		else if(fmt ==1) {
-			ByteStream bs(p,7);
-			bs.get_be24();
-			size = bs.get_be24();
-			type = bs.get_byte();
-			p += 7;	
-			p += size;
-		}
-		else if (fmt == 2) {
+	//size_t len = socket_.read_some(buffer(data_));
+    uint8_t data[4096];
+    boost::asio::read(socket_, buffer(data,1));
+	//std::cout << "readed:" << len << std::endl;
+	uint8_t *p = data,*end = data_.end();
 
-		}
-		else if (fmt == 3) {
-		}
-		std::cout << "type:" << type << ",size:" << size << std::endl;
-		switch (type) {
+    int type;
+    int size;
+    int fmt = *p >> 6;
+    /* TODO: Complete Chunk Stream ID format */
+    int csid = *p & 0x3F;
+    std::cout << "fmt=" << fmt << ",csid:" << csid << std::endl;
+    p++;
+    if (prev_message.completed()) {
+        prev_message.body2_.clear();
+    }
+
+    if (fmt == 0) {
+        boost::asio::read(socket_, buffer(p,11));
+        ByteStream bs(p,11);
+        bs.get_be24();
+        size = bs.get_be24();
+        type = bs.get_byte();
+        bs.get_be32();
+        prev_message.csid_ = csid;
+        prev_message.length_ = size;
+        prev_message.type_ = type;
+        p += 11;
+    }
+    else if(fmt ==1) {
+        boost::asio::read(socket_, buffer(p,7));
+	    ByteStream bs(p,7);
+    	bs.get_be24();
+        size = bs.get_be24();
+        type = bs.get_byte();
+        prev_message.csid_ = csid;
+        prev_message.length_ = size;
+        prev_message.type_ = type;
+        p += 7;	
+    }
+    else if (fmt == 2) {
+        boost::asio::read(socket_, buffer(p,3));
+        p += 3;
+    }
+    else if (fmt == 3) {
+        size = prev_message.length_ - prev_message.body2_.size();
+        type = prev_message.type_;
+    }
+    std::cout << "type:" << type << ",size:" << size << std::endl;
+    int parsed = size > rx_max_chunk_size_ ? rx_max_chunk_size_ : size;
+    boost::asio::read(socket_, buffer(p,parsed));
+    
+     for(int i=0; i<parsed; ++i)
+        prev_message.body2_.push_back(p[i]);
+}
+
+void RRtmpCli::deal_message()
+{
+    int type;
+    if (!prev_message.completed()) {
+        return ;
+    }
+    type = prev_message.type_;
+    uint8_t* p = prev_message.body_;
+    ByteStream bs(p,4);
+    std::vector<uint8_t>& body = prev_message.body2_;
+    switch (type) {
+        case 0x01: /* Set Chunk Size */
+            //rx_max_chunk_size_ = bs.get_be32();
+            rx_max_chunk_size_ = 4096; 
+            std::cout << "rx:set chunk size to " << rx_max_chunk_size_ 
+                << std::endl; 
+            break;
 		case 0x04: /* User Control Message */
 			break;
 		case 0x05: /* Window Ack Size */
@@ -143,21 +180,74 @@ void RRtmpCli::command_connect()
 		case 0x06: /* Set Peer Bandwidth */
 			break;
 		case 0x14: /* AMF0 Message */
+        {
+            amf0_data *data = amf0_data_buffer_read(body.data(),body.size());
+            std::cout << "amf0 size " << amf0_data_size(data) << std::endl;
+            if ( AMF0_TYPE_STRING == amf0_data_get_type(data)) {
+                size_t len = amf0_string_get_size(data);
+                uint8_t *method = amf0_string_get_bytes(data);
+                std::string key;
+                for(int i=0;i<len;++i)
+                {
+                   key += static_cast<char>(method[i]); 
+                }
+                std::cout << amf0_string_get_bytes(data) << std::endl;
+                if (key == "_result") {
+                    wait_for_result_ = false;
+                } 
+            }
 			break;
+        }
 		default:
 			break;
-		}
-	} 
+    }
+}
+void RRtmpCli::command_connect()
+{
+    using boost::asio::buffer;
+    /* ------ command message (connect) ------> */
+    
+    // socket_.send();
+    Message message = Control::SetChunkSize(4096);
+    cmd_channel_.Send(socket_, tx_max_chunk_size_, message);
+    tx_max_chunk_size_ = 4096; 
+   
+    message = Command::Connect("live");
+    cmd_channel_.Send(socket_, tx_max_chunk_size_, message);
+
+    wait_for_result_ = true;
+    while(wait_for_result_) 
+    {
+        read_one_chunk();
+        deal_message();
+    }
 }
 
 void RRtmpCli::create_stream()
 {
+    Message msg = Command::CreateStream();
+    cmd_channel_.Send(socket_, tx_max_chunk_size_, msg);
+
+    wait_for_result_ = true;
+    while(wait_for_result_){
+        read_one_chunk();
+        deal_message();
+    }
 }
 
 void RRtmpCli::release_stream()
 {
 }
-
+void RRtmpCli::play()
+{
+    Message msg = Command::Play();
+    cmd_channel_.Send(socket_, tx_max_chunk_size_, msg);
+    wait_for_result_ = true;
+    while(wait_for_result_){
+        read_one_chunk();
+        deal_message();
+    }
+}
 Control::Control(int type, int para)
 {
     type_ = type;
@@ -220,34 +310,96 @@ Message Message::Connect(std::string app)
     msg.length_ = len;
     return msg;
 }
-
-void Channel::Send(tcp::socket& socket, const Message& msg)
+/* static */
+Message Message::CreateStream()
 {
-    uint8_t buf[128];
-    ByteStream bs(buf,128);
-    bs.put_byte(msg.csid_);     /* basic header */
+    Message msg(4096);
+    amf0_data *data;
+    data = amf0_data_new(AMF0_TYPE_STRING);
+    data = amf0_str("createStream");
+    std::cout << amf0_string_get_size(data) << std::endl;  
     
-    bs.put_be24(msg.timestamp_);
-    bs.put_be24(msg.length_);
-    bs.put_byte(msg.type_);
-    bs.put_be32(msg.stream_id_);
+    size_t len = amf0_data_buffer_write(data, msg.body_, 4096);
+    std::cout << len << std::endl;
 
+    data = amf0_number_new(2);
+    len = len + amf0_data_buffer_write(data, msg.body_+len, 4096);
+    std::cout << len << std::endl;
+    data = amf0_null_new(); 
+    len = len + amf0_data_buffer_write(data, msg.body_+len, 4096);
+    std::cout << len << std::endl;
+    
+    msg.csid_ = 3;
+    msg.timestamp_ = 0;
+    msg.type_ = 20;  /* AMF 0 */
+    msg.stream_id_ = 0;
+    msg.length_ = len;
+    return msg;
+}
+Message Message::Play()
+{
+    Message msg(4096);
+    amf0_data *data;
+    
+    data = amf0_str("play");
+    //std::cout << amf0_string_get_size(data) << std::endl;  
+    size_t len = amf0_data_buffer_write(data, msg.body_, 4096);
+    std::cout << len << std::endl;
+
+    data = amf0_number_new(3);
+    len = len + amf0_data_buffer_write(data, msg.body_+len, 4096);
+    std::cout << len << std::endl;
+    
+    data = amf0_null_new(); 
+    len = len + amf0_data_buffer_write(data, msg.body_+len, 4096);
+    std::cout << len << std::endl;
+
+    data = amf0_str("hks");
+    //std::cout << amf0_string_get_size(data) << std::endl;  
+    len =len+ amf0_data_buffer_write(data, msg.body_+len, 4096);
+    std::cout << len << std::endl;
+   
+    data = amf0_number_new(-2000);
+    len = len + amf0_data_buffer_write(data, msg.body_+len, 4096);
+    std::cout << len << std::endl;
+
+    msg.csid_ = 8;
+    msg.timestamp_ = 0;
+    msg.type_ = 20;  /* AMF 0 */
+    msg.stream_id_ = 1;
+    msg.length_ = len;
+    return msg;
+}   
+
+void Channel::Send(tcp::socket& socket, int max_chunk_size, const Message& msg)
+{
     /* basic header */
     /* message header, type is 0, 1, 2, or 3 */
     /* extended timestam */
     /* chunk data */
+    uint8_t buf[128];
 
     int size = msg.length_;
     uint8_t* p = msg.body_;
-
-    while (size > chunk_size_) {
+    bool first = true;
+    while (size > 0) {
+        ByteStream bs(buf,128);
+        if (first) {
+            bs.put_byte(0x3F & msg.csid_);     /* basic header */
+            bs.put_be24(msg.timestamp_);
+            bs.put_be24(msg.length_);
+            bs.put_byte(msg.type_);
+            std::cout << "stream_id_:" << msg.stream_id_ << std::endl;
+            bs.put_le32(msg.stream_id_);
+            first = false;
+        }
+        else {
+            bs.put_byte(0xC0 | msg.csid_);
+        }
         socket.send(boost::asio::buffer(bs.buf(),bs.size()));
-        socket.send(boost::asio::buffer(p,chunk_size_));
-        size -= chunk_size_;
-        p += chunk_size_;
-    }
-    if (size > 0) {
-        socket.send(boost::asio::buffer(bs.buf(),bs.size()));
-        socket.send(boost::asio::buffer(p,size));
+        int to_send = size > max_chunk_size ? max_chunk_size: size;
+            socket.send(boost::asio::buffer(p,to_send));
+        size -= to_send;
+        p += to_send;
     }
 }
