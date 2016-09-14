@@ -2,81 +2,48 @@
 #define RRTMP_RTMP_H_ 
 
 #include <boost/asio.hpp>
+#include "message.hpp"
+
 using boost::asio::ip::tcp;
-class Message
-{
-public:
-    static Message SetChunkSize(int size);
-    static Message Connect(std::string);
-    static Message WindowAcknowledgementSize(uint32_t);
-    static Message CreateStream();
-    static Message Play();
-    static Message SetBufferLength();
-    Message() =default;
-    Message(uint32_t length)
-       :length_(length) 
-    {
-        body_ = (uint8_t*) malloc(length_);
-    }
-    Message(uint16_t csid, uint32_t timestamp, uint32_t size)
-       :csid_(csid) 
-    {
 
-    }
-    bool completed(){
-        return body2_.size() == length_;
-    }
-public:
-    uint16_t csid_;
-    uint32_t timestamp_;
-    uint32_t length_;
-    uint8_t  type_;
-    uint32_t stream_id_;
-    uint8_t* body_;
-    std::vector<uint8_t> body2_;
-};
-
-class Control : public Message
+namespace rrtmp {
+enum TypeId
 {
-public:
-    Control(int type, int para);
-private:
-    int type_;
-    int para_;
-};
-
-class Command : public Message
-{
+    SET_CHUNK_SIZE = 1,
+    ABORT_MESSAGE = 2,
+    ACKNOWLEDGEMENT = 3,
+    USER_CONTROL= 4,
+    WINDOW_ACKNOWLEDGEMENT_SIZE = 5,
+    SET_PEER_BANDWIDTH = 6,
+    AUDIO= 8,
+    VIDEO= 9,
+    COMMAND_AMF0 = 20,
+    COMMAND_AMF3 = 17,
+    DATA_AMF0 = 18,
+    DATA_AMF3 = 15,
 };
 
 class Channel 
 {
 public:
-    Channel(int csid)
-       : csid_(csid), chunk_size_(128)
+    Channel(int csid, int max_chunk_size)
+       : csid_(csid), 
+         max_chunk_size_(max_chunk_size)
     {}
     void Send(tcp::socket&, int, const Message&);
-    void ReadOneChunk(tcp::socket&);
-    /*
-    int GetTxMaxChunkSize() {
-        return tx_max_chunk_size_;
-    }
-    void SetTxMaxChunkSize(int size) {
-       tx_max_chunk_size_ = size; 
-    }
-    int GetRxMaxChunkSize() {
-        return rx_max_chunk_size_;
-    }
-    void SetRxMaxChunkSize(int size) {
-       rx_max_chunk_size_ = size; 
-    }
-    */
+    void RecvChunk(tcp::socket&, int fmt, Message&);
 private:
     int csid_;
-    int chunk_size_;
-    uint8_t fmt;
+    int prev_fmt_;
+    int chunk_count_;
+    int max_chunk_size_;
     uint32_t last_timestamp_;
+    uint8_t prev_header;
+    Message prev_msg_;
+    Message m;
+    uint8_t ch_buf_[8192];
 };
+
 class Packet
 {
 };
@@ -91,7 +58,7 @@ public:
     void Disconnect();
     void Play();
     void Publish();
-    void Read();
+    void Read(Message&);
 private:
     void tcp_connect(std::string);
     void handshake();
@@ -101,21 +68,19 @@ private:
     void play();
     void read_one_chunk();
     void deal_message();
-    /*
-    Channel get_peer_channel(int chunk_stream_id) {
-        for (auto channel : peer_channel_) {
-            if (channel.id() == chunk_stream_id)
-                return channel;
+    Channel* get_rx_channel(int csid) {
+        if (rx_channel_map_[csid] == nullptr) {
+            rx_channel_map_[csid] = new Channel(csid, rx_max_chunk_size_);
         }
-        return 
+        return rx_channel_map_[csid]; 
     }
-    */
 private:
     boost::asio::io_service io_service_;
-    boost::asio::ip::tcp::socket socket_;
+    tcp::socket socket_;
     Channel cmd_channel_;
-    Message prev_message;
-    //Channel peer_channel_[10];
+    Message message_;
+    std::map<int,Channel*> rx_channel_map_;
+    std::map<int,Channel*> tx_channel_map_;
     int recv_max_chunk_size = 128;
     int tx_max_chunk_size_;
     int rx_max_chunk_size_;
@@ -130,5 +95,5 @@ public:
     static RRtmp* Create();
     static RRtmpCli* CreateCli();
 };
-
+} //end namespace rrtmp
 #endif

@@ -45,12 +45,6 @@ struct ByteStream
         *cur++ = val;
     }
     
-    void put_buffer(uint8_t* val, size_t size)
-    {
-        memcpy(cur, val, size);
-        cur += size;
-    }
-
     inline size_t size() { 
         return cur - begin;
     };
