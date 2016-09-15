@@ -65,7 +65,6 @@ private:
     int recv_max_chunk_size = 128;
     int tx_max_chunk_size_;
     int rx_max_chunk_size_;
-    std::vector<Packet> packet_;
     std::array<uint8_t,8192> data_;
     bool wait_for_result_;
 };

@@ -1,7 +1,11 @@
 #include <cstdio>
 #include <iostream>
 
+#include <boost/regex.hpp>
+
 #include "rtmp.hpp"
+
+
 using namespace rrtmp;
 
 static RRtmpCli* client;
@@ -45,9 +49,15 @@ static void loop()
     {
         switch(c) {
         case 'c':
+		{
+    		client->Connect(url);
             break;
+		}
         case 'd':
+		{
+    		client->Disconnect();
             break;
+		}
         case '\n':
             break;
         case 'p':
@@ -88,9 +98,7 @@ int main(int argc, char *argv[])
         return -1;
     std::cout << url << std::endl;
     client = RRtmp::CreateCli();
-    client->Connect();
     loop();
-    client->Disconnect();
     delete client;
     return 0;
 }

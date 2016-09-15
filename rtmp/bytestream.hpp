@@ -9,11 +9,17 @@ struct ByteStream
     }
 
     uint32_t get_be32() {
-		uint32_t val = *cur++ << 24 | *cur++ << 16 | *cur++ << 8 | *cur++;
+		uint32_t val = *cur++ << 24;
+		val |= *cur++ << 16;
+		val |= *cur++ << 8;
+		val |= *cur++;
 		return val;
 	}
 	uint32_t get_be24() {
-		return *cur++ << 16 | *cur++ << 8 | *cur++;
+		uint32_t val = *cur++ << 16;
+		val |= *cur++ << 8;
+		val |= *cur++;
+		return val;
 	}
 	uint8_t get_byte() {
 		return *cur++;
