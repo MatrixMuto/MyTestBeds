@@ -52,10 +52,25 @@ static void loop()
             break;
         case 'p':
         {
-            int i = 10000000;
+            int i = 100;
             Message msg;
             while (i--) {
                 client->Read(msg);
+				switch (msg.getType()) {
+					case TypeId::VIDEO:
+					case TypeId::AUDIO:
+					case TypeId::DATA_AMF0:
+					{
+						
+						break;
+					}
+					default:
+					{
+						std::cout << "main: did not handle type: "
+							<< msg.getType() << std::endl;
+						break;
+					}
+				}
             }
             break;
         }

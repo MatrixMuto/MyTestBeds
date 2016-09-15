@@ -6,6 +6,23 @@
 
 namespace rrtmp
 {
+enum TypeId
+{
+    SET_CHUNK_SIZE = 1,
+    ABORT_MESSAGE = 2,
+    ACKNOWLEDGEMENT = 3,
+    USER_CONTROL= 4,
+    WINDOW_ACKNOWLEDGEMENT_SIZE = 5,
+    SET_PEER_BANDWIDTH = 6,
+    AUDIO= 8,
+    VIDEO= 9,
+    COMMAND_AMF0 = 20,
+    COMMAND_AMF3 = 17,
+    DATA_AMF0 = 18,
+    DATA_AMF3 = 15,
+};
+
+
 class Message
 {
 public:
@@ -18,6 +35,9 @@ public:
 
     Message() =default;
 
+	TypeId getType() {
+		return (TypeId)type_;
+	}
     bool completed(){
         return is_completed_;
     }

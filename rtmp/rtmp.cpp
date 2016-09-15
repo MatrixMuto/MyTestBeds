@@ -50,7 +50,8 @@ void RRtmpCli::Connect(std::string ip)
 void RRtmpCli::Connect()
 {
 //    Connect("122.228.237.24");
-    Connect("115.231.30.16");
+    //Connect("115.231.30.16");
+    Connect("117.148.128.36");
     //Connect("127.0.0.1");
 }
 
@@ -68,15 +69,15 @@ void RRtmpCli::Publish()
 void RRtmpCli::Read(Message& msg)
 {
     for(;;) {
-        read_one_chunk();
-        deal_message();
-        if (message_.completed()) {
-            if (message_.type_ == 0x8)
+        read_one_chunk(msg);
+        deal_message(msg);
+        if (msg.completed()) {
+            if (msg.type_ == TypeId::VIDEO)
             {
-                std::cout << "Video:" << message_.csid_ << std::endl;
+                std::cout << "Video:" << msg.csid_ << std::endl;
             }
-            else if (message_.type_ == 0x9) {
-                std::cout << "Audio:" << message_.csid_ << std::endl;
+            else if (msg.type_ == TypeId::AUDIO) {
+                std::cout << "Audio:" << msg.csid_ << std::endl;
             }
             break;
         }
@@ -112,7 +113,7 @@ void RRtmpCli::handshake()
 
 }
 
-void RRtmpCli::read_one_chunk()
+void RRtmpCli::read_one_chunk(Message& msg)
 {
     using boost::asio::buffer;
     uint8_t data[1];
@@ -121,10 +122,10 @@ void RRtmpCli::read_one_chunk()
     int csid = data[0] &  0x3F; /* TODO: Complete Chunk Stream ID format */
 
     Channel* ch = get_rx_channel(csid);
-    ch->RecvChunk(socket_, fmt, message_);
+    ch->RecvChunk(socket_, fmt, msg);
 }
 
-void RRtmpCli::deal_message()
+void RRtmpCli::deal_message(Message& message_)
 {
     int type;
     if (!message_.completed()) {
@@ -178,7 +179,7 @@ void RRtmpCli::command_connect()
 {
     using boost::asio::buffer;
     
-    Message message = Control::SetChunkSize(4096);
+    Message message = Message::SetChunkSize(4096);
     cmd_channel_.Send(socket_, tx_max_chunk_size_, message);
     tx_max_chunk_size_ = 4096; 
    
@@ -186,23 +187,25 @@ void RRtmpCli::command_connect()
     message = Command::Connect("live");
     cmd_channel_.Send(socket_, tx_max_chunk_size_, message);
 
+	Message msg;
     wait_for_result_ = true;
     while(wait_for_result_) 
     {
-        read_one_chunk();
-        deal_message();
+        read_one_chunk(msg);
+        deal_message(msg);
     }
 }
 
 void RRtmpCli::create_stream()
 {
-    Message msg = Command::CreateStream();
+    Message msg = Message::CreateStream();
     cmd_channel_.Send(socket_, tx_max_chunk_size_, msg);
 
     wait_for_result_ = true;
+	Message msg2;
     while(wait_for_result_){
-        read_one_chunk();
-        deal_message();
+        read_one_chunk(msg2);
+        deal_message(msg2);
     }
 }
 

@@ -7,21 +7,6 @@
 using boost::asio::ip::tcp;
 
 namespace rrtmp {
-enum TypeId
-{
-    SET_CHUNK_SIZE = 1,
-    ABORT_MESSAGE = 2,
-    ACKNOWLEDGEMENT = 3,
-    USER_CONTROL= 4,
-    WINDOW_ACKNOWLEDGEMENT_SIZE = 5,
-    SET_PEER_BANDWIDTH = 6,
-    AUDIO= 8,
-    VIDEO= 9,
-    COMMAND_AMF0 = 20,
-    COMMAND_AMF3 = 17,
-    DATA_AMF0 = 18,
-    DATA_AMF3 = 15,
-};
 
 class Channel 
 {
@@ -44,9 +29,6 @@ private:
     uint8_t ch_buf_[8192];
 };
 
-class Packet
-{
-};
 class RRtmpCli
 {
 public:
@@ -66,8 +48,8 @@ private:
     void create_stream();
     void release_stream();
     void play();
-    void read_one_chunk();
-    void deal_message();
+    void read_one_chunk(Message&);
+    void deal_message(Message&);
     Channel* get_rx_channel(int csid) {
         if (rx_channel_map_[csid] == nullptr) {
             rx_channel_map_[csid] = new Channel(csid, rx_max_chunk_size_);
@@ -78,7 +60,6 @@ private:
     boost::asio::io_service io_service_;
     tcp::socket socket_;
     Channel cmd_channel_;
-    Message message_;
     std::map<int,Channel*> rx_channel_map_;
     std::map<int,Channel*> tx_channel_map_;
     int recv_max_chunk_size = 128;
