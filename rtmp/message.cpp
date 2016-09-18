@@ -68,7 +68,7 @@ Message Message::CreateStream()
     Message msg;
     amf0_data *data;
 	
-	msg.write_string("createstream");
+	msg.write_string("createStream");
 
     data = amf0_number_new(2);
     len = amf0_data_buffer_write(data, buf, 4096);
