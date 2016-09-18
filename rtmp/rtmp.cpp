@@ -1,7 +1,5 @@
-#include <boost/asio.hpp>
-
 #include <iostream>
-
+#include <boost/asio.hpp>
 #include "amf0.h"
 #include "bytestream.hpp"
 #include "rtmp.hpp"
@@ -49,9 +47,9 @@ void RRtmpCli::Connect(std::string ip)
 
 void RRtmpCli::Connect()
 {
-//    Connect("122.228.237.24");
+    Connect("122.228.237.24");
     //Connect("115.231.30.16");
-    Connect("117.148.128.36");
+//    Connect("117.148.128.36");
     //Connect("127.0.0.1");
 }
 
@@ -79,6 +77,11 @@ void RRtmpCli::Read(Message& msg)
             else if (msg.type_ == TypeId::AUDIO) {
                 std::cout << "Audio:" << msg.csid_ << std::endl;
             }
+            else if (msg.type_ == DATA_AMF0) {
+                std::cout << "Meta:" << msg.csid_ << std::endl;
+            }
+            else 
+                continue;
             break;
         }
     }
@@ -157,7 +160,7 @@ void RRtmpCli::deal_message(Message& message_)
                 size_t len = amf0_string_get_size(data);
                 uint8_t *method = amf0_string_get_bytes(data);
                 std::string key;
-                for(int i=0;i<len;++i)
+                for(size_t i=0;i<len;++i)
                 {
                    key += static_cast<char>(method[i]); 
                 }
@@ -167,6 +170,11 @@ void RRtmpCli::deal_message(Message& message_)
                 } 
             }
 			break;
+        }
+        case 0x8:
+        case 0x9:
+        {
+            break;
         }
 		default:
         {
@@ -184,7 +192,7 @@ void RRtmpCli::command_connect()
     tx_max_chunk_size_ = 4096; 
    
     /* ------ command message (connect) ------> */
-    message = Command::Connect("live");
+    message = Command::Connect("live", 1);
     cmd_channel_.Send(socket_, tx_max_chunk_size_, message);
 
 	Message msg;
@@ -215,14 +223,8 @@ void RRtmpCli::release_stream()
 
 void RRtmpCli::play()
 {
-    Message msg = Command::Play();
+    Message msg = Command::Play("hks");
     cmd_channel_.Send(socket_, tx_max_chunk_size_, msg);
-}
-
-Control::Control(int type, int para)
-{
-    type_ = type;
-    para_ = para;
 }
 
 void Channel::Send(tcp::socket& socket, int max_chunk_size, const Message& msg)
@@ -243,7 +245,7 @@ void Channel::Send(tcp::socket& socket, int max_chunk_size, const Message& msg)
             bs.put_be24(msg.timestamp_);
             bs.put_be24(msg.length_);
             bs.put_byte(msg.type_);
-            std::cout << "stream_id_:" << msg.stream_id_ << std::endl;
+            std::cout << "TX --->" << "stream_id_:" << msg.stream_id_ << std::endl;
             bs.put_le32(msg.stream_id_);
             first = false;
         }
@@ -309,7 +311,7 @@ void Channel::RecvChunk(tcp::socket& socket, int fmt, Message& msg)
         m.stream_id_= prev_msg_.stream_id_;
         m.type_ = prev_msg_.type_;
     }
-    std::cout << "fmt:" << fmt << ", csid:" << csid_ 
+    std::cout << "RX <----" << "fmt:" << fmt << ", csid:" << csid_ 
               << ", type:" << (int)m.type_ << ", size:" << m.length_
               << std::endl;
     int size = m.length_ - m.body_.size();
@@ -319,6 +321,7 @@ void Channel::RecvChunk(tcp::socket& socket, int fmt, Message& msg)
     for(int i=0; i < to_read; ++i)
         m.body_.push_back(p[i]);
 
+//	m.body_.insert(m.body_.end(), p, p+to_read);
     if (m.Check()) {
         msg = m;
     }

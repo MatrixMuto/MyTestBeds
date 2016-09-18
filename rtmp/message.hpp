@@ -2,6 +2,7 @@
 #define RRTMP_MESSAGE_H_
 
 #include <vector>
+#include <string>
 #include <cstdint>
 
 namespace rrtmp
@@ -27,10 +28,10 @@ class Message
 {
 public:
     static Message SetChunkSize(int size);
-    static Message Connect(std::string);
+    static Message Connect(std::string app, int rpc_number);
     static Message WindowAcknowledgementSize(uint32_t);
     static Message CreateStream();
-    static Message Play();
+    static Message Play(std::string key);
     static Message SetBufferLength();
 
     Message() =default;
@@ -49,9 +50,11 @@ public:
         body_.clear();
         is_completed_ = false;
     }
+private:
+	size_t write_string(std::string str);
 public:
     uint16_t csid_;
-    uint32_t timestamp_;
+    uint32_t timestamp_ = 0;
     uint32_t length_;
     uint8_t  type_;
     uint32_t stream_id_;
@@ -61,11 +64,6 @@ public:
 
 class Control : public Message
 {
-public:
-    Control(int type, int para);
-private:
-    int type_;
-    int para_;
 };
 
 class Command : public Message

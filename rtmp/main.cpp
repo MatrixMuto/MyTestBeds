@@ -2,14 +2,89 @@
 #include <iostream>
 
 #include <boost/regex.hpp>
-
+#include "bytestream.hpp"
 #include "rtmp.hpp"
 
 
 using namespace rrtmp;
 
 static RRtmpCli* client;
-static char *url = "not spec";
+static std::string url = "117.148.128.36";
+
+static const char flvHeader[] = { 'F', 'L', 'V', 0x01,
+								0x5,
+								0, 0, 0, 9,
+                                0, 0, 0, 0};
+static void dump_to_flv(int n)
+{
+	FILE *file;
+	file = fopen("dump.flv","a+");
+	if (file == NULL)
+	{
+		return;
+	}
+static int header = 1;
+	if (header) {
+	fwrite(flvHeader, 1, sizeof(flvHeader), file);
+	header = 0;
+	}
+    int i = n;
+    Message msg;
+    while (i--) {
+		client->Read(msg);
+		switch (msg.getType()) {
+			case TypeId::VIDEO:
+			{
+				uint8_t buf[11];
+				buf[0] = 0x9;
+				ByteStream bs(buf,11);
+				bs.put_byte(0x9);
+				bs.put_be24(msg.body_.size());
+				bs.put_be24(msg.timestamp_);
+				bs.put_byte(0);
+				bs.put_be32(0);
+				
+				fwrite(buf,1,sizeof(buf),file);
+				fwrite(msg.body_.data(),1, msg.body_.size(),file);
+				ByteStream tagSize(buf,4);
+				tagSize.put_be32(11 + msg.body_.size());
+				fwrite(buf,1,4,file);
+				break;
+			}
+			case TypeId::AUDIO:
+			{
+				uint8_t buf[11];
+				buf[0] = 0x8;
+				ByteStream bs(buf,11);
+				bs.put_byte(0x8);
+				bs.put_be24(msg.body_.size());
+				bs.put_be24(msg.timestamp_);
+				bs.put_byte(0);
+				bs.put_be32(0);
+				
+				fwrite(buf,1,sizeof(buf),file);
+				fwrite(msg.body_.data(),1, msg.body_.size(),file);
+
+				ByteStream tagSize(buf,4);
+				tagSize.put_be32(11 + msg.body_.size());
+				fwrite(buf,1,4,file);
+
+				break;
+			}
+			case TypeId::DATA_AMF0:
+			{
+				break;
+			}
+			default:
+			{
+				std::cout << "main: did not handle type: "
+					<< msg.getType() << std::endl;
+				break;
+			}
+		}
+	}
+	fclose(file);
+}
 
 static int get_options(int argc, char* argv[])
 {
@@ -45,7 +120,7 @@ static int get_options(int argc, char* argv[])
 static void loop()
 {
     char c;
-    while((c = getchar()) != 0)
+    while(std::cin >> c)
     {
         switch(c) {
         case 'c':
@@ -62,27 +137,8 @@ static void loop()
             break;
         case 'p':
         {
-            int i = 100;
-            Message msg;
-            while (i--) {
-                client->Read(msg);
-				switch (msg.getType()) {
-					case TypeId::VIDEO:
-					case TypeId::AUDIO:
-					case TypeId::DATA_AMF0:
-					{
-						
-						break;
-					}
-					default:
-					{
-						std::cout << "main: did not handle type: "
-							<< msg.getType() << std::endl;
-						break;
-					}
-				}
-            }
-            break;
+			dump_to_flv(100000);
+			break;
         }
         case 'q':
             return;
