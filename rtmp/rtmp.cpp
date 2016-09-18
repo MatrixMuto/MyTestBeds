@@ -72,10 +72,10 @@ void RRtmpCli::Read(Message& msg)
         if (msg.completed()) {
             if (msg.type_ == TypeId::VIDEO)
             {
-                std::cout << "Video:" << msg.csid_ << std::endl;
+                std::cout << "Video:" << msg.timestamp_ << std::endl;
             }
             else if (msg.type_ == TypeId::AUDIO) {
-                std::cout << "Audio:" << msg.csid_ << std::endl;
+                std::cout << "Audio:" << msg.timestamp_ << std::endl;
             }
             else if (msg.type_ == DATA_AMF0) {
                 std::cout << "Meta:" << msg.csid_ << std::endl;
@@ -290,7 +290,7 @@ void Channel::RecvChunk(tcp::socket& socket, int fmt, Message& msg)
          */
         boost::asio::read(socket, buffer(p,7));
 	    ByteStream bs(p,7);
-        m.timestamp_ = bs.get_be24();
+        m.timestamp_ = prev_msg_.timestamp_ + bs.get_be24();
         m.length_ = bs.get_be24();
         m.type_ = bs.get_byte();
         m.stream_id_ = prev_msg_.stream_id_;
