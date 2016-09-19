@@ -35,8 +35,10 @@ public:
     RRtmpCli(const RRtmpCli&) = delete;
     RRtmpCli& operator=(const RRtmpCli&) = delete;
     RRtmpCli();
+	RRtmpCli(std::string url);
+	~RRtmpCli() = default;
     void Connect();
-    void Connect(std::string ip);
+    void Connect(std::string url);
     void Disconnect();
     void Play();
     void Publish();
@@ -60,13 +62,16 @@ private:
     boost::asio::io_service io_service_;
     tcp::socket socket_;
     Channel cmd_channel_;
-    std::map<int,Channel*> rx_channel_map_;
-    std::map<int,Channel*> tx_channel_map_;
+    std::map<int, Channel*> rx_channel_map_;
+    std::map<int, Channel*> tx_channel_map_;
     int recv_max_chunk_size = 128;
     int tx_max_chunk_size_;
     int rx_max_chunk_size_;
     std::array<uint8_t,8192> data_;
     bool wait_for_result_;
+	std::string host_;
+	std::string app_;
+	std::string key_;
 };
 
 class RRtmp

@@ -1,5 +1,7 @@
 #include <iostream>
 #include <boost/asio.hpp>
+#include <boost/regex.hpp>
+
 #include "amf0.h"
 #include "bytestream.hpp"
 #include "rtmp.hpp"
@@ -26,10 +28,55 @@ RRtmpCli::RRtmpCli()
 {
 }
 
-void RRtmpCli::Connect(std::string ip)
+RRtmpCli::RRtmpCli(std::string url)
+	: RRtmpCli()
 {
+	boost::regex e( "^rtmp://([^/]+)/([^/]+)/([^/]+)$" );
+
+	boost::match_results<std::string::const_iterator> what;
+
+	std::cout << "regex: " << what.size() << std::endl;
+	boost::smatch matches;
+	if (boost::regex_match( url, matches, e)){
+		std::cout << matches[1] << std::endl;
+	}
+
+	
+	//if (boost::regex_search( url, what, e)) {
+		/*
+		std::string base_url( what[1].first, what[1].second );
+		std::cout << base_url << std::endl;
+		*/
+	//}		
+}
+
+void RRtmpCli::Connect(std::string url)
+{
+	boost::regex e( "^rtmp://([^/]+)/([^/]+)/([^/]+)$" );
+
+	boost::match_results<std::string::const_iterator> what;
+
+	boost::smatch matches;
+	if (boost::regex_match( url, matches, e)){
+		std::cout << matches[1] << std::endl;
+		std::cout << matches[2] << std::endl;
+		std::cout << matches[3] << std::endl;
+		host_ = matches[1];
+		app_= matches[2];
+		key_ = matches[3];
+	}
+	else {
+		std::cerr << "Please check Url" << std::endl;
+		return;
+	}
+	
+	if (boost::regex_search( url, what, e)) {
+		std::cout << "regex: " << what.size() << std::endl;
+		std::string base_url( what[1].first, what[1].second );
+		std::cout << base_url << std::endl;
+	}	
     try {
-        tcp_connect(ip);
+        tcp_connect(host_);
         
         handshake();
        
@@ -41,16 +88,12 @@ void RRtmpCli::Connect(std::string ip)
     }
     catch (std::exception& e)
     {
-        std::cerr << e.what() << std::endl;
+        std::cerr << "Exception:" << e.what() << std::endl;
     }
 }
 
 void RRtmpCli::Connect()
 {
-    Connect("122.228.237.24");
-    //Connect("115.231.30.16");
-//    Connect("117.148.128.36");
-    //Connect("127.0.0.1");
 }
 
 void RRtmpCli::Disconnect()
@@ -86,13 +129,23 @@ void RRtmpCli::Read(Message& msg)
         }
     }
 }
-void RRtmpCli::tcp_connect(std::string ip)
+void RRtmpCli::tcp_connect(std::string host)
 {
     boost::asio::ip::address addr;
-    addr = boost::asio::ip::address::from_string(ip);
-    tcp::endpoint serv(addr, 1935);
+	tcp::resolver resolver(io_service_);
+	tcp::resolver::query query(host, "");
+	for(tcp::resolver::iterator i = resolver.resolve(query);
+			                            i != tcp::resolver::iterator();
+										                            ++i)
+	{
+	    boost::asio::ip::tcp::endpoint end = *i;
+    //	addr = boost::asio::ip::address::from_string(ip);
+    	tcp::endpoint serv(end.address(), 1935);
+    	socket_.connect(serv);
+		std::cout << end.address() << std::endl;
+		break;
+	}
 
-    socket_.connect(serv);
 }     
 
 void RRtmpCli::handshake()
@@ -192,7 +245,7 @@ void RRtmpCli::command_connect()
     tx_max_chunk_size_ = 4096; 
    
     /* ------ command message (connect) ------> */
-    message = Command::Connect("live", 1);
+    message = Command::Connect(app_, 1);
     cmd_channel_.Send(socket_, tx_max_chunk_size_, message);
 
 	Message msg;
@@ -223,7 +276,7 @@ void RRtmpCli::release_stream()
 
 void RRtmpCli::play()
 {
-    Message msg = Command::Play("hks");
+    Message msg = Command::Play(key_);
     cmd_channel_.Send(socket_, tx_max_chunk_size_, msg);
 }
 
