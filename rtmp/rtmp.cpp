@@ -98,6 +98,12 @@ void RRtmpCli::Connect()
 
 void RRtmpCli::Disconnect()
 {
+	for (auto pair: rx_channel_map_){
+		if (pair.second != nullptr) {
+			std::cout << "free: " << pair.second->csid_ << std::endl;
+			delete static_cast<Channel*>(pair.second);
+		}
+	}
 }
 
 void RRtmpCli::Play()
@@ -109,6 +115,7 @@ void RRtmpCli::Publish()
 }
 void RRtmpCli::Read(Message& msg)
 {
+	msg.is_completed_= false;
     for(;;) {
         read_one_chunk(msg);
         deal_message(msg);
@@ -181,15 +188,15 @@ void RRtmpCli::read_one_chunk(Message& msg)
     ch->RecvChunk(socket_, fmt, msg);
 }
 
-void RRtmpCli::deal_message(Message& message_)
+void RRtmpCli::deal_message(Message& message)
 {
     int type;
-    if (!message_.completed()) {
+    if (!message.completed()) {
         return ;
     }
-    type = message_.type_;
-    uint8_t* p = message_.body_.data();
-    std::vector<uint8_t>& body = message_.body_;
+    type = message.type_;
+    uint8_t* p = message.body_.data();
+    std::vector<uint8_t>& body = message.body_;
     switch (type) {
         case 0x01: /* Set Chunk Size */
         {
@@ -222,6 +229,7 @@ void RRtmpCli::deal_message(Message& message_)
                     wait_for_result_ = false;
                 } 
             }
+			if (data) amf0_data_free(data);
 			break;
         }
         case 0x8:
@@ -241,12 +249,13 @@ void RRtmpCli::command_connect()
     using boost::asio::buffer;
     
     Message message = Message::SetChunkSize(4096);
-    cmd_channel_.Send(socket_, tx_max_chunk_size_, message);
+    cmd_channel_.Send(socket_, message);
     tx_max_chunk_size_ = 4096; 
+	cmd_channel_.max_chunk_size_ = 4096;
    
     /* ------ command message (connect) ------> */
-    message = Command::Connect(app_, 1);
-    cmd_channel_.Send(socket_, tx_max_chunk_size_, message);
+    message = Message::Connect(app_, 1);
+    cmd_channel_.Send(socket_, message);
 
 	Message msg;
     wait_for_result_ = true;
@@ -260,7 +269,7 @@ void RRtmpCli::command_connect()
 void RRtmpCli::create_stream()
 {
     Message msg = Message::CreateStream();
-    cmd_channel_.Send(socket_, tx_max_chunk_size_, msg);
+    cmd_channel_.Send(socket_, msg);
 
     wait_for_result_ = true;
 	Message msg2;
@@ -276,11 +285,11 @@ void RRtmpCli::release_stream()
 
 void RRtmpCli::play()
 {
-    Message msg = Command::Play(key_);
-    cmd_channel_.Send(socket_, tx_max_chunk_size_, msg);
+    Message msg = Message::Play(key_);
+    cmd_channel_.Send(socket_, msg);
 }
 
-void Channel::Send(tcp::socket& socket, int max_chunk_size, const Message& msg)
+void Channel::Send(tcp::socket& socket, const Message& msg)
 {
     /* basic header */
     /* message header, type is 0, 1, 2, or 3 */
@@ -306,7 +315,7 @@ void Channel::Send(tcp::socket& socket, int max_chunk_size, const Message& msg)
             bs.put_byte(0xC0 | msg.csid_);
         }
         socket.send(boost::asio::buffer(bs.buf(),bs.size()));
-        int to_send = size > max_chunk_size ? max_chunk_size: size;
+        int to_send = size > max_chunk_size_ ? max_chunk_size_: size;
             socket.send(boost::asio::buffer(p,to_send));
         size -= to_send;
         p += to_send;
@@ -371,10 +380,7 @@ void Channel::RecvChunk(tcp::socket& socket, int fmt, Message& msg)
     int to_read = size > max_chunk_size_ ? max_chunk_size_ : size;
     boost::asio::read(socket, buffer(p, to_read));
     
-    for(int i=0; i < to_read; ++i)
-        m.body_.push_back(p[i]);
-
-//	m.body_.insert(m.body_.end(), p, p+to_read);
+	m.body_.insert(m.body_.end(), p, p+to_read);
     if (m.Check()) {
         msg = m;
     }

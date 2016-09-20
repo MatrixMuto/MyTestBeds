@@ -5,11 +5,10 @@
 #include "bytestream.hpp"
 #include "rtmp.hpp"
 
-
 using namespace rrtmp;
 
 static RRtmpCli* client;
-static std::string url = "117.148.128.36";
+static std::string url = "rtmp://live.hkstv.hk.lxdns.com/live/hks";
 
 static const char flvHeader[] = { 'F', 'L', 'V', 0x01,
 								0x5,
@@ -22,11 +21,6 @@ static void dump_to_flv(int n)
 	if (file == NULL)
 	{
 		return;
-	}
-static int header = 1;
-	if (header) {
-	fwrite(flvHeader, 1, sizeof(flvHeader), file);
-	header = 0;
 	}
     int i = n;
     Message msg;
@@ -125,19 +119,24 @@ static void loop()
         switch(c) {
         case 'c':
 		{
+			FILE* file = fopen("dump.flv","w+");
+			fwrite(flvHeader, 1, sizeof(flvHeader), file);
+			fclose(file);
+    		client = RRtmp::CreateCli();
     		client->Connect(url);
             break;
 		}
         case 'd':
 		{
     		client->Disconnect();
+    		delete client;
             break;
 		}
         case '\n':
             break;
         case 'p':
         {
-			dump_to_flv(100000);
+			dump_to_flv(100);
 			break;
         }
         case 'q':
@@ -150,11 +149,16 @@ static void loop()
 
 int main(int argc, char *argv[])
 {
-    if ( get_options(argc,argv) )
+	{
+		Message a,b;
+		a.body_.push_back(8);
+		b = a;
+	}
+    if ( get_options(argc, argv) )
         return -1;
     std::cout << url << std::endl;
-    client = RRtmp::CreateCli();
+
     loop();
-    delete client;
+
     return 0;
 }
