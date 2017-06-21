@@ -1,15 +1,16 @@
 [submodule "ffmpeg"]
+    path = third_party/ffmpeg
 	url = https://git.ffmpeg.org/ffmpeg.git
 [submodule "x264"]
-	path = x264
+	path = third_party/x264
 	url = http://git.videolan.org/git/x264.git
 [submodule "libev"]
-	path = libev
+	path = third_party/libev
 	url = https://github.com/enki/libev.git
 [submodule "libevent"]
-	path = libevent
+	path = third_party/libevent
 	url = https://github.com/libevent/libevent.git
 
 [submodule "rtmp/libamf"]
-	path = rtmp/libamf
+	path = third_party/rtmp/libamf
 	url = https://github.com/noirotm/libamf.git
