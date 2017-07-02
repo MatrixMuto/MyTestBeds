@@ -5,8 +5,10 @@ set(CMAKE_CXX_COMPILER clang++)
 
 include_directories(.)
 
-add_library(base base/timeutils.cc)
-add_executable (test_main test/base_test.cc)
-target_link_libraries(test_main base)
 
 add_subdirectory(test)
+
+
+aux_source_directory(test TESTSOURCE)
+
+add_executable(test22 ${TESTSOURCE})

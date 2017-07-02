@@ -9,8 +9,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 
-void test_1()
-{
+void test_1() {
     char *data;
     int sockfd;
     sem_t lock;
@@ -18,7 +17,7 @@ void test_1()
 
     sem_init(&lock, 0, 0);
 
-    data = (char*) malloc(1000);
+    data = (char *) malloc(1000);
 
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -34,11 +33,11 @@ void test_1()
 
     clock_gettime(CLOCK_REALTIME, &abstime);
 
-    for (int i=0; i < 60; i++) {
+    for (int i = 0; i < 60; i++) {
         printf("%d \n", i);
 
-        for (int j=0; j< 50; j++)
-            sendto(sockfd, data, 1000, 0, (struct sockaddr*)&srv_addr, sizeof(srv_addr));
+        for (int j = 0; j < 50; j++)
+            sendto(sockfd, data, 1000, 0, (struct sockaddr *) &srv_addr, sizeof(srv_addr));
 
         //pthread_cond_wait();
         abstime.tv_sec += 1;
@@ -47,13 +46,10 @@ void test_1()
     }
 
 
-
-
     close(sockfd);
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char *argv[]) {
     test_1();
     return 0;
 }
