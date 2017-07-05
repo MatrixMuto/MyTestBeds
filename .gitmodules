@@ -14,3 +14,6 @@
 [submodule "rtmp/libamf"]
 	path = third_party/rtmp/libamf
 	url = https://github.com/noirotm/libamf.git
+[submodule "thrid_party/libuv"]
+	path = thrid_party/libuv
+	url = https://github.com/libuv/libuv.git
